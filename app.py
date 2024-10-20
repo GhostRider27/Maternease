@@ -5,6 +5,9 @@ import google.generativeai as gen_ai
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
 from streamlit_option_menu import option_menu
+import pyrebase
+import json
+
 # Load environment variables
 load_dotenv()
 
@@ -13,6 +16,13 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 
+#Firebase auth
+
+with open('firebaseconfig.json') as f:
+    firebase_config = json.load(f)
+
+firebase = pyrebase.initialize_app(firebase_config)
+auth = firebase.auth()
 
 db = firestore.client()
 
@@ -24,21 +34,21 @@ st.set_page_config(
 )
 
 
-
+# Function for user login and signup
 def login_signup():
     choice = st.selectbox("Login/Signup", ["Login", "Signup"])
     email = st.text_input("Enter your email")
     password = st.text_input("Enter your password", type="password")
 
-
     # Signup Logic
     if choice == "Signup" and st.button("Create Account"):
         if email and password:
             try:
-                user = auth.create_user(email=email, password=password)
+                user = auth.create_user_with_email_and_password(email=email, password=password)
                 st.success("Account created successfully!")
             except Exception as e:
                 st.error(f"Error creating account: {e}")
+                print(e)  # Debug statement
         else:
             st.error("Please enter both email and password.")
 
@@ -46,18 +56,19 @@ def login_signup():
     if choice == "Login" and st.button("Login"):
         if email and password:
             try:
-                user = auth.get_user_by_email(email)
+                # Use Firebase Authentication API to sign in
+                user = auth.sign_in_with_email_and_password(email, password)
                 st.session_state.user = user
                 st.session_state.logged_in = True  # Set login flag to True
-                profile_doc = db.collection("users").document(user_id).get()
+                st.session_state.user_id = user['localId']  # Store user ID for later use
                 st.success("Logged in successfully!")
                 st.rerun()  # Rerun the script to show the main app
-
-
             except Exception as e:
                 st.error(f"Invalid credentials: {e}")
+                print(e)  # Debug statement
         else:
             st.error("Please enter both email and password.")
+
 
 
 
