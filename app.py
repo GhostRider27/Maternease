@@ -1,6 +1,4 @@
 
-
-
 import os
 import streamlit as st
 from dotenv import load_dotenv
@@ -12,6 +10,35 @@ import pyrebase
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import joblib
+import pandas as pd
+import seaborn as sns
+
+model = joblib.load('risk_model.pkl')
+
+# Define the prediction function
+def predict_risk(age, systolic_bp, diastolic_bp, bs, heart_rate, body_temp):
+    # Prepare the input as a DataFrame (assuming the model expects a DataFrame input)
+    input_data = pd.DataFrame([[age, systolic_bp, diastolic_bp, bs, body_temp, heart_rate,]],
+                              columns=['Age', 'SystolicBP', 'DiastolicBP', 'BS', 'BodyTemp', 'HeartRate'])
+    
+    # Predict risk level
+    risk_level = model.predict(input_data)[0]
+    return risk_level
+
+def plot_feature_importance(model):
+    feature_importance = model.feature_importances_
+    features = ['Age', 'SystolicBP', 'DiastolicBP', 'BS', 'HeartRate', 'BodyTemp']
+    feature_score = pd.Series(feature_importance, index=features)
+    score = feature_score.sort_values()
+    
+    plt.figure(figsize=(8, 4))
+    plt.barh(y=score.index, width=score.values, color='violet')
+    plt.grid(alpha=0.4)
+    plt.title('Feature Importance of Random Forest')
+    st.pyplot(plt)
+
+
 
 
 # Load environment variables
@@ -46,26 +73,31 @@ import streamlit as st
 from firebase_admin import firestore  # Ensure Firebase is initialized and Firestore is imported
 from streamlit_option_menu import option_menu
 
+
+
+# LOGIN CODE ###############################
 def login_signup():
     choice = st.selectbox("Login/Signup", ["Login", "Signup"])
     email = st.text_input("Enter your email")
     password = st.text_input("Enter your password", type="password")
 
     # Signup Logic
-    if choice == "Signup" and st.button("Create Account"):
-        if email and password:
+    if choice == "Signup":
+        signup_triggered = st.button("Create Account")
+        if signup_triggered and email and password:
             try:
                 user = auth.create_user_with_email_and_password(email=email, password=password)
                 st.success("Account created successfully!")
             except Exception as e:
                 st.error(f"Error creating account: {e}")
                 print(e)  # Debug statement
-        else:
+        elif signup_triggered:
             st.error("Please enter both email and password.")
 
     # Login Logic
-    if choice == "Login" and st.button("Login"):
-        if email and password:
+    if choice == "Login":
+        login_triggered = st.button("Login")
+        if login_triggered and email and password:
             try:
                 # Use Firebase Authentication API to sign in
                 user = auth.sign_in_with_email_and_password(email, password)
@@ -77,7 +109,7 @@ def login_signup():
             except Exception as e:
                 st.error(f"Invalid credentials: {e}")
                 print(e)  # Debug statement
-        else:
+        elif login_triggered:
             st.error("Please enter both email and password.")
 
 # If user is not logged in, show login/signup page
@@ -104,7 +136,7 @@ else:
             return profile_doc.to_dict()
         return {}  # Return empty dictionary if no data exists
 
-    # Profile Section
+    # Profile Section ##########################################################
     if selected == "Profile":
         col1, col2 = st.columns([7, 1])
 
@@ -125,14 +157,32 @@ else:
         months_pregnant = st.text_input("Months Pregnant", value=str(profile_data.get("months_pregnant", "")))  # Convert to str
         chronic_diseases = st.text_area("Chronic Diseases (separate by commas)", 
                                         value=', '.join(profile_data.get("chronic_diseases", [])))
-        weight = st.text_input("Weight (kg)", value=str(profile_data.get("weight", "")))  # Convert to str
-        height = st.text_input("Height (cm)", value=str(profile_data.get("height", "")))  # Convert to str
+        weight = st.text_input("Weight (kg)", value=(profile_data.get("weight", "")))  # Convert to str
+        height = st.text_input("Height (cm)", value=(profile_data.get("height", "")))  # Convert to str
         medications = st.text_area("Medications", value=', '.join(profile_data.get("medications", [])))
         allergies = st.text_area("Allergies", value=', '.join(profile_data.get("allergies", [])))
         exercise = st.text_input("Exercise Routine", value=profile_data.get("exercise", ""))
         dietary_preferences = st.text_input("Dietary Preferences", value=profile_data.get("dietary_preferences", ""))
         smoking_habits = st.text_input("Smoking Habits", value=profile_data.get("smoking_habits", ""))
         alcohol_habits = st.text_input("Alcohol Consumption", value=profile_data.get("alcohol_habits", ""))
+
+        if height and weight:
+            weightf = float(weight)
+            heightf = float(height) / 100
+            bmi = weightf / (heightf ** 2)
+        
+            st.markdown(f"<p style='color:red; font-size:20px;'>  Your BMI is {bmi:.2f} </p>", unsafe_allow_html=True)
+
+
+            if bmi < 18.5:
+                st.markdown("<p style='color:blue; font-size:18px;'>Your BMI is considered Underweight.</p>", unsafe_allow_html=True)
+            elif 18.5 <= bmi <= 24.9:
+                st.markdown("<p style='color:green; font-size:18px;'>Your BMI is in the Good (Normal) range.</p>", unsafe_allow_html=True)
+            elif 25 <= bmi <= 29.9:
+                st.markdown("<p style='color:orange; font-size:18px;'>Your BMI is considered Okay (Overweight).</p>", unsafe_allow_html=True)
+            else:
+                st.markdown("<p style='color:red; font-size:18px;'>Your BMI is in the Bad (Obese) range.</p>", unsafe_allow_html=True)
+
 
         # Save profile data to Firestore on button click
         if st.button("Save Profile"):
@@ -155,11 +205,13 @@ else:
             # Save to Firestore
             db.collection("users").document(user_id).set(updated_profile_data)
             st.success("Profile saved successfully!")
-            print(f"Updated Profile Data for {user_id}: {updated_profile_data}")
 
             # Clear the cache to fetch updated data on next load
             get_profile_data.clear()
 
+
+
+ ###############################
 
     # Chatbot Section
     # Chatbot Section
@@ -169,7 +221,6 @@ else:
         GOOGLE_API_KEY = os.getenv("API_Key")
 
         # Set up Google Gemini-Pro AI model
-        gen_ai.configure(api_key=GOOGLE_API_KEY)
         gen_ai.configure(api_key=GOOGLE_API_KEY)
         model = gen_ai.GenerativeModel('gemini-pro')
 
@@ -185,24 +236,7 @@ else:
         if "display_history" not in st.session_state:
             st.session_state.display_history = []  # Stores only user prompts and assistant responses
 
-
-        # Function to retrieve profile data (assuming get_profile_data function exists)
-        def get_profile_data(user_id):
-            # Mock profile data for the example
-            return {
-                "name": "Aayushi",
-                "age": 21,
-                "months_pregnant": 4,
-                "chronic_diseases": ["Diabetes", "Asthma"],
-                "weight": 34.0,
-                "height": 164.0,
-                "medications": ["diabetes", "asthma"],
-                "allergies": ["peanuts"],
-                "exercise": "walking",
-                "dietary_preferences": "vegetarian",
-                "smoking_habits": "no",
-                "alcohol_habits": "no"
-            }
+    
 
         # Fetch profile data
         profile_data = get_profile_data(user_id)
@@ -226,6 +260,20 @@ else:
 
         # Chatbot UI
         st.title("🤖 Your AI Health Assistant")
+
+        languages = [
+            "English","Hindi", "Bengali", "Telugu", "Marathi", "Tamil", 
+            "Urdu", "Gujarati", "Malayalam", "Kannada", "Odia", 
+            "Punjabi", "Assamese", "Maithili", "Sanskrit", 
+            "Konkani", "Sindhi", "Nepali", "Kashmiri", "Dogri", 
+            "Santali", "Bodo"
+        ]
+
+        # Dropdown list to select language
+        selected_language = st.selectbox("Select a language", languages)
+
+
+        ## HISTORY DISPLAY
         for message in st.session_state.display_history:
             if message["role"] == "user":
                 st.chat_message("user").markdown(message["text"])  # Display user prompt
@@ -234,13 +282,19 @@ else:
 
         # Get user input
         user_prompt = st.chat_input("Ask Gemini-Pro...")
+
         if user_prompt:
             # Prepare full prompt with profile data for the model
-            complete_prompt = f"{get_profile_info()}\n\nUser Query: {user_prompt}"
+            complete_prompt = f"{get_profile_info()}\n\nUser Query: {user_prompt} \n\nLanguage we want the answer in: {selected_language}  "
+
+
+            # FIRST USER DISPLAY 
             
             # Display user's question in the chat
             with st.chat_message("user"):
                 st.markdown(user_prompt)
+
+            ####
             
             # Send prompt to Gemini-Pro
             response = st.session_state.chat_session.send_message(complete_prompt)
@@ -249,52 +303,47 @@ else:
             st.session_state.display_history.append({"role": "user", "text": user_prompt})
             st.session_state.display_history.append({"role": "assistant", "text": response.text})
             
+
+            ### FIRST ASSISTANT DISPlAY 
+
             # Display assistant’s response
             with st.chat_message("assistant"):
                 st.markdown(response.text)
 
-    
+            ###
+
+
+
+# PREDICTION PAGE ____________________________________________________________________
+
     elif selected == "Prediction":
 
-        def predict_risk(age, systolic_bp, diastolic_bp, bs, heart_rate):
-            # Placeholder for your ML model prediction logic
-            # This function should return a risk level based on input parameters
-            # For demonstration, we use a simple calculation
-            risk_level = (age + systolic_bp + diastolic_bp + bs + heart_rate) / 10
-            return risk_level
-
-        def plot_graph(risk_level):
-            # Create a simple bar chart based on the risk level
-            categories = ['Risk Level']
-            values = [risk_level]
-            
-            fig, ax = plt.subplots()
-            ax.bar(categories, values, color='blue')
-            ax.set_ylim(0, 100)  # Set limit for the risk level
-            ax.set_ylabel('Risk Intensity Level')
-            ax.set_title('Predicted Risk Intensity Level')
-            
-            return fig
-
-        # Page Title
+           # Page Title
         st.title("Prediction")
+
+        
+     
 
         # Input Section
         st.header("Input Patient Data")
     
-        age = st.slider("Age:", min_value=18, max_value=50, value=30, step=1)
+        age = st.slider("Age:", min_value=30, max_value=100, value=50, step=5)
         systolic_bp = st.slider("Systolic BP (mmHg):", min_value=90, max_value=200, value=120, step=1)
         diastolic_bp = st.slider("Diastolic BP (mmHg):", min_value=60, max_value=120, value=80, step=1)
         bs = st.slider("Blood Glucose Levels (mmol/L):", min_value=3.0, max_value=15.0, value=5.0, step=0.1)
         heart_rate = st.slider("Heart Rate (bpm):", min_value=40, max_value=150, value=70, step=1)
+        body_temp = st.slider("Body Temperature (°F):", min_value=35.0, max_value=42.0, value=37.0, step=0.1)
+
 
         # Button to Trigger Prediction
         if st.button("Predict Risk Level"):
-            risk_level = predict_risk(age, systolic_bp, diastolic_bp, bs, heart_rate)
+            risk_level = predict_risk(age, systolic_bp, diastolic_bp, bs, heart_rate, body_temp)
             
             # Displaying the Risk Level
-            st.success(f"Predicted Risk Level: {risk_level:.2f}")
+            st.success(f"Predicted Risk Level: {risk_level}")
             
             # Plot the graph
-            fig = plot_graph(risk_level)
-            st.pyplot(fig)
+            st.subheader("Feature Importance in Model Prediction")
+            plot_feature_importance(model)
+
+
