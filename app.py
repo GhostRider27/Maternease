@@ -7,12 +7,10 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 from streamlit_option_menu import option_menu
 import pyrebase
-import json
 import matplotlib.pyplot as plt
-import numpy as np
 import joblib
 import pandas as pd
-import seaborn as sns
+
 
 model = joblib.load('risk_model.pkl')
 
