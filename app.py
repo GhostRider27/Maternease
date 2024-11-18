@@ -44,20 +44,45 @@ def plot_feature_importance(model):
 # Load environment variables
 load_dotenv()
 
+
+firebase_config = {
+    "apiKey": os.getenv("FIREBASE_API_KEY"),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+    "databaseURL": os.getenv("FIREBASE_DATABASE_URL"),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID"),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+    "appId": os.getenv("FIREBASE_APP_ID"),
+    "measurementId": os.getenv("FIREBASE_MEASUREMENT_ID"),
+     "type": os.getenv("FIREBASE_TYPE"),
+    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+    "private_key": os.getenv("FIREBASE_PRIVATE_KEY").replace("\\n", "\n"),
+    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
+    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
+    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER_CERT"),
+    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT"),
+    "universe_domain": os.getenv("FIREBASE_UNIVERSE_DOMAIN"),
+
+}
+
+
+
 # Initialize Firebase Admin SDK only once
 if not firebase_admin._apps:
-    cred = credentials.Certificate('firebaseconfig.json')
+    print(os.getenv("FIREBASE_PRIVATE_KEY"))
+    cred = credentials.Certificate(firebase_config)
     firebase_admin.initialize_app(cred)
-
 # Firestore Database
 db = firestore.client()
-
 # Firebase auth
-with open('firebaseconfig.json') as f:
-    firebase_config = json.load(f)
+
 
 firebase = pyrebase.initialize_app(firebase_config)
 auth = firebase.auth()
+
 
 # Configure Streamlit page settings
 st.set_page_config(
@@ -218,7 +243,7 @@ else:
     elif selected == "Chatbot":
 
         # Load API key from environment variables
-        GOOGLE_API_KEY = os.getenv("API_Key")
+        GOOGLE_API_KEY = os.getenv("Gemini_API_Key")
 
         # Set up Google Gemini-Pro AI model
         gen_ai.configure(api_key=GOOGLE_API_KEY)
@@ -327,7 +352,7 @@ else:
         # Input Section
         st.header("Input Patient Data")
     
-        age = st.slider("Age:", min_value=30, max_value=100, value=50, step=5)
+        age = st.slider("Age:", min_value=10, max_value=70, value=30, step=1)
         systolic_bp = st.slider("Systolic BP (mmHg):", min_value=90, max_value=200, value=120, step=1)
         diastolic_bp = st.slider("Diastolic BP (mmHg):", min_value=60, max_value=120, value=80, step=1)
         bs = st.slider("Blood Glucose Levels (mmol/L):", min_value=3.0, max_value=15.0, value=5.0, step=0.1)
