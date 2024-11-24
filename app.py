@@ -142,6 +142,28 @@ else:
     user_id = st.session_state.user_id  # Ensure user ID is available for later use
 
     # Sidebar Navigation
+    st.sidebar.image("LogoFinal1.jpg", use_column_width=True)
+
+
+    st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"] {
+        background-color: #FFC7C7;
+    }
+
+    /* Optional: Customize sidebar text color */
+    [data-testid="stSidebar"] .css-1d391kg {
+        color: white; 
+    }
+
+  
+
+    </style>
+    """,
+    unsafe_allow_html=True
+    )
+
     with st.sidebar:
         selected = option_menu(
             menu_title="Menu",
@@ -149,6 +171,12 @@ else:
             icons=["house-heart-fill", "calendar2-heart-fill", "envelope-heart-fill"],
             menu_icon="heart-eyes-fill",
             default_index=0,
+            styles = {
+                 "nav-link-selected": {
+                "background-color": "#DCD6F7",  # Color of selected item
+                "color": "black",  # Text color of selected item
+            },}
+
         )
 
     # Firestore Profile Retrieval (with cache clearing for updates)
@@ -194,7 +222,7 @@ else:
             heightf = float(height) / 100
             bmi = weightf / (heightf ** 2)
         
-            st.markdown(f"<p style='color:red; font-size:20px;'>  Your BMI is {bmi:.2f} </p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:purple; font-size:20px;'>  Your BMI is {bmi:.2f} </p>", unsafe_allow_html=True)
 
 
             if bmi < 18.5:
